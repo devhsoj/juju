@@ -1,0 +1,9 @@
+# personal config
+.idea/
+.vscode/
+
+# build stuff
+build/
+cmd/juju-server/juju-server
+juju
+juju.exe
