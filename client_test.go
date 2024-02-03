@@ -26,7 +26,7 @@ func TestClientPublish(t *testing.T) {
 	}
 
 	msg := []byte("This is a test message!")
-	msgCount := 10
+	msgCount := 1_024
 
 	start := time.Now().UnixMilli()
 	for i := 0; i < msgCount; i++ {
@@ -37,6 +37,26 @@ func TestClientPublish(t *testing.T) {
 	end := time.Now().UnixMilli()
 
 	log.Printf("%d ms | %d mb | %d b", end-start, msgCount*(len(msg)+1+8+128)/1_024_000, msgCount*(len(msg)+1+8+128))
+
+	if err := client.Disconnect(); err != nil {
+		t.Fatalf("failed to disconnect: %s", err)
+	}
+}
+
+func TestClientSubscribe(t *testing.T) {
+	client := Client{}
+
+	if err := client.Connect(""); err != nil {
+		t.Fatalf("failed to connect: %s", err)
+	}
+
+	err := client.Subscribe("test", func(data []byte) {
+		log.Println(string(data))
+	})
+
+	if err != nil {
+		t.Fatalf("failed to subscribe: %s", err)
+	}
 
 	if err := client.Disconnect(); err != nil {
 		t.Fatalf("failed to disconnect: %s", err)

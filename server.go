@@ -5,11 +5,19 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 const IncomingDataBufferSize int = 32_768
 
+type ServerClient struct {
+	TimeLastPublishedTo time.Time
+	// internals
+	conn net.Conn
+}
+
 type Server struct {
+	Subscriptions map[string][]ServerClient
 	// internals
 	listener  net.Listener
 	listening bool
@@ -29,6 +37,7 @@ func (server *Server) Start(listenAddress string) error {
 	}
 
 	server.listening = true
+	server.Subscriptions = make(map[string][]ServerClient)
 
 	for server.listening {
 		conn, err := server.listener.Accept()
@@ -52,6 +61,8 @@ func (server *Server) handleConnection(conn net.Conn) {
 			log.Printf("failed to close connection: %s", err)
 		}
 
+		server.removeClient(conn)
+
 		log.Printf("[-] %s", conn.RemoteAddr().String())
 	}()
 
@@ -64,7 +75,7 @@ func (server *Server) handleConnection(conn net.Conn) {
 
 			if err != nil {
 				if err != io.EOF {
-					log.Printf("failed reading from client: %s %d", err, n)
+					log.Printf("failed reading from client: %s", err)
 				}
 
 				return
@@ -87,7 +98,7 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 	for offset < len(data) {
 		cmd := data[offset]
 
-		if cmd != PublishCommand || offset+CommandTypeBufferSize >= len(data) || offset+CommandTypeBufferSize+CommandDataLengthBufferSize >= len(data) || offset+CommandMetadataTotalBufferSize >= len(data) {
+		if cmd == PublishCommand && (offset+CommandTypeBufferSize >= len(data) || offset+CommandTypeBufferSize+CommandDataLengthBufferSize >= len(data) || offset+CommandMetadataTotalBufferSize >= len(data)) {
 			break
 		}
 
@@ -103,7 +114,11 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 
 		cmdData := data[offset+CommandMetadataTotalBufferSize : offset+CommandMetadataTotalBufferSize+int(dataLength)]
 
-		go server.handleCommand(conn, cmd, identifier, cmdData)
+		go func() {
+			if err := server.handleCommand(conn, cmd, identifier, cmdData); err != nil {
+				log.Printf("failed running command: %s", err)
+			}
+		}()
 
 		offset = offset + CommandMetadataTotalBufferSize + int(dataLength)
 		processedLength += CommandMetadataTotalBufferSize + int(dataLength)
@@ -112,6 +127,55 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 	return processedLength
 }
 
-func (server *Server) handleCommand(conn net.Conn, cmd Command, identifier string, data []byte) {
-	// TODO
+func (server *Server) handleCommand(conn net.Conn, cmd Command, identifier string, data []byte) error {
+	if cmd == PublishCommand {
+		if _, exists := server.Subscriptions[identifier]; !exists {
+			return nil
+		}
+
+		dataLengthBuf := make([]byte, 8)
+
+		binary.BigEndian.PutUint64(dataLengthBuf, uint64(len(data)))
+
+		identifierBuf := EncodeIdentifier(identifier)
+
+		res := []byte{
+			SubscribeCommand,
+		}
+
+		res = append(res, dataLengthBuf...)
+		res = append(res, identifierBuf...)
+		res = append(res, data...)
+
+		for i := 0; i < len(server.Subscriptions[identifier]); i++ {
+			if _, err := server.Subscriptions[identifier][i].conn.Write(res); err != nil {
+				return err
+			}
+
+			server.Subscriptions[identifier][i].TimeLastPublishedTo = time.Now()
+		}
+	} else if cmd == SubscribeCommand {
+		if _, exists := server.Subscriptions[identifier]; !exists {
+			server.Subscriptions[identifier] = []ServerClient{}
+		}
+
+		server.Subscriptions[identifier] = append(server.Subscriptions[identifier], ServerClient{
+			conn: conn,
+		})
+	}
+
+	return nil
+}
+
+func (server *Server) removeClient(conn net.Conn) {
+	addr := conn.RemoteAddr().String()
+
+	for channelName, clients := range server.Subscriptions {
+		for i, client := range clients {
+			if client.conn.RemoteAddr().String() == addr {
+				server.Subscriptions[channelName][i] = server.Subscriptions[channelName][len(server.Subscriptions[channelName])-1]
+				server.Subscriptions[channelName] = server.Subscriptions[channelName][:len(server.Subscriptions[channelName])-1]
+			}
+		}
+	}
 }
