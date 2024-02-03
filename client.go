@@ -41,14 +41,20 @@ func (client *Client) Disconnect() error {
 	return nil
 }
 
-func (client *Client) Publish(channelName string, data []byte) error {
+func (client *Client) Publish(channelName string, data []byte, exclusive bool) error {
 	identifierBuf := EncodeIdentifier(channelName)
 	dataLengthBuf := make([]byte, 8)
 
 	binary.BigEndian.PutUint64(dataLengthBuf, uint64(len(data)))
 
+	var cmd Command = PublishCommand
+
+	if exclusive {
+		cmd = ExclusivePublishCommand
+	}
+
 	req := []byte{
-		PublishCommand,
+		cmd,
 	}
 
 	req = append(req, dataLengthBuf...)

@@ -3,7 +3,6 @@ package juju
 import (
 	"log"
 	"testing"
-	"time"
 )
 
 func TestClientConnection(t *testing.T) {
@@ -25,18 +24,11 @@ func TestClientPublish(t *testing.T) {
 		t.Fatalf("failed to connect: %s", err)
 	}
 
-	msg := []byte("This is a test message!")
-	msgCount := 1_024
-
-	start := time.Now().UnixMilli()
-	for i := 0; i < msgCount; i++ {
-		if err := client.Publish("test", msg); err != nil {
+	for i := 0; i < 10; i++ {
+		if err := client.Publish("test", []byte("Test message."), true); err != nil {
 			t.Fatalf("failed to publish: %s", err)
 		}
 	}
-	end := time.Now().UnixMilli()
-
-	log.Printf("%d ms | %d mb | %d b", end-start, msgCount*(len(msg)+1+8+128)/1_024_000, msgCount*(len(msg)+1+8+128))
 
 	if err := client.Disconnect(); err != nil {
 		t.Fatalf("failed to disconnect: %s", err)
@@ -73,7 +65,7 @@ func BenchmarkClientPublish(b *testing.B) {
 	msg := []byte("This is a test message!")
 
 	for n := 0; n < b.N; n++ {
-		if err := client.Publish("test", msg); err != nil {
+		if err := client.Publish("test", msg, false); err != nil {
 			b.Fatalf("failed to publish: %s", err)
 		}
 	}

@@ -3,8 +3,9 @@ package juju
 type Command = byte
 
 const (
-	PublishCommand   = 'p'
-	SubscribeCommand = 's'
+	PublishCommand          = 'p'
+	ExclusivePublishCommand = 'e'
+	SubscribeCommand        = 's'
 )
 
 const (

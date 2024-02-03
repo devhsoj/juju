@@ -98,7 +98,7 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 	for offset < len(data) {
 		cmd := data[offset]
 
-		if cmd == PublishCommand && (offset+CommandTypeBufferSize >= len(data) || offset+CommandTypeBufferSize+CommandDataLengthBufferSize >= len(data) || offset+CommandMetadataTotalBufferSize >= len(data)) {
+		if (cmd == PublishCommand || cmd == ExclusivePublishCommand) && (offset+CommandTypeBufferSize >= len(data) || offset+CommandTypeBufferSize+CommandDataLengthBufferSize >= len(data) || offset+CommandMetadataTotalBufferSize >= len(data)) {
 			break
 		}
 
@@ -128,7 +128,7 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 }
 
 func (server *Server) handleCommand(conn net.Conn, cmd Command, identifier string, data []byte) error {
-	if cmd == PublishCommand {
+	if cmd == PublishCommand || cmd == ExclusivePublishCommand {
 		if _, exists := server.Subscriptions[identifier]; !exists {
 			return nil
 		}
@@ -147,13 +147,26 @@ func (server *Server) handleCommand(conn net.Conn, cmd Command, identifier strin
 		res = append(res, identifierBuf...)
 		res = append(res, data...)
 
-		for i := 0; i < len(server.Subscriptions[identifier]); i++ {
-			if _, err := server.Subscriptions[identifier][i].conn.Write(res); err != nil {
-				return err
+		if cmd == PublishCommand {
+			for i := 0; i < len(server.Subscriptions[identifier]); i++ {
+				if _, err := server.Subscriptions[identifier][i].conn.Write(res); err != nil {
+					return err
+				}
+
+				server.Subscriptions[identifier][i].TimeLastPublishedTo = time.Now()
 			}
 
-			server.Subscriptions[identifier][i].TimeLastPublishedTo = time.Now()
+			return nil
 		}
+
+		// sort subscriptions by time last published to
+		client := server.getLastPublishedToSubscribedClient(identifier)
+
+		if _, err := client.conn.Write(res); err != nil {
+			return err
+		}
+
+		client.TimeLastPublishedTo = time.Now()
 	} else if cmd == SubscribeCommand {
 		if _, exists := server.Subscriptions[identifier]; !exists {
 			server.Subscriptions[identifier] = []ServerClient{}
@@ -178,4 +191,22 @@ func (server *Server) removeClient(conn net.Conn) {
 			}
 		}
 	}
+}
+
+func (server *Server) getLastPublishedToSubscribedClient(channelName string) *ServerClient {
+	_, exists := server.Subscriptions[channelName]
+
+	if !exists {
+		return nil
+	}
+
+	var client = &server.Subscriptions[channelName][0]
+
+	for i := 1; i < len(server.Subscriptions[channelName]); i++ {
+		if server.Subscriptions[channelName][i].TimeLastPublishedTo.UnixNano() < client.TimeLastPublishedTo.UnixNano() {
+			client = &server.Subscriptions[channelName][i]
+		}
+	}
+
+	return client
 }

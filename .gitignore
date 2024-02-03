@@ -7,3 +7,5 @@ build/
 cmd/juju-server/juju-server
 juju
 juju.exe
+juju-server
+juju-server.exe
