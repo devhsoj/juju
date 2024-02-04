@@ -1,8 +1,12 @@
-# personal config
+# personal stuff
 .idea/
 .vscode/
 
-# build stuff
+# git
+.git/
+.gitignore
+
+# miscellaneous build stuff
 build/
 cmd/juju-server/juju-server
 cmd/juju-server/juju-server.exe
