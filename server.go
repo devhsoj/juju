@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-const IncomingDataBufferSize int = 32_768
-
 type ServerClient struct {
 	TimeLastPublishedTo time.Time
 	// internals

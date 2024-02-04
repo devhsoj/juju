@@ -9,8 +9,9 @@ import (
 
 type Client struct {
 	// internals
-	conn      net.Conn
-	connected bool
+	conn       net.Conn
+	connected  bool
+	subscribed bool
 }
 
 func (client *Client) Connect(serverAddress string) error {
@@ -83,6 +84,8 @@ func (client *Client) Subscribe(channelName string, callback func(data []byte)) 
 		return err
 	}
 
+	client.subscribed = true
+
 	for client.connected {
 		var data []byte
 
@@ -106,6 +109,8 @@ func (client *Client) Subscribe(channelName string, callback func(data []byte)) 
 			}
 		}
 	}
+
+	client.subscribed = false
 
 	return nil
 }

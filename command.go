@@ -9,6 +9,7 @@ const (
 )
 
 const (
+	IncomingDataBufferSize         int = 32_768
 	CommandTypeBufferSize          int = 1
 	CommandDataLengthBufferSize    int = 8
 	CommandIdentifierBufferSize    int = 128
