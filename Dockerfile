@@ -10,7 +10,6 @@ FROM golang:1.21.4-alpine3.18 AS RUNNER_IMAGE
 WORKDIR /opt/juju
 COPY --from=BUILD_IMAGE /opt/juju-build/juju-server .
 
-ARG LISTEN_ADDRESS="localhost:9261"
-ENV LISTEN_ADDRESS=$LISTEN_ADDRESS
+ENV DOCKER="true"
 
 CMD ["/opt/juju/juju-server"]
