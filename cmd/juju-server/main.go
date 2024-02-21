@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	server := juju.Server{}
+	server := juju.NewServer()
 
 	var listenAddress = "localhost:9261"
 

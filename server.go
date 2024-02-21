@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-type ServerClient struct {
+type serverClient struct {
 	TimeLastPublishedTo time.Time
 	// internals
 	conn net.Conn
 }
 
 type Server struct {
-	Subscriptions map[string][]ServerClient
+	Subscriptions map[string][]serverClient
 	// internals
 	listener  net.Listener
 	listening bool
@@ -35,7 +35,7 @@ func (server *Server) Start(listenAddress string) error {
 	}
 
 	server.listening = true
-	server.Subscriptions = make(map[string][]ServerClient)
+	server.Subscriptions = make(map[string][]serverClient)
 
 	for server.listening {
 		conn, err := server.listener.Accept()
@@ -167,10 +167,10 @@ func (server *Server) handleCommand(conn net.Conn, cmd Command, identifier strin
 		client.TimeLastPublishedTo = time.Now()
 	} else if cmd == SubscribeCommand {
 		if _, exists := server.Subscriptions[identifier]; !exists {
-			server.Subscriptions[identifier] = []ServerClient{}
+			server.Subscriptions[identifier] = []serverClient{}
 		}
 
-		server.Subscriptions[identifier] = append(server.Subscriptions[identifier], ServerClient{
+		server.Subscriptions[identifier] = append(server.Subscriptions[identifier], serverClient{
 			conn: conn,
 		})
 	}
@@ -191,7 +191,7 @@ func (server *Server) removeClient(conn net.Conn) {
 	}
 }
 
-func (server *Server) getLastPublishedToSubscribedClient(channelName string) *ServerClient {
+func (server *Server) getLastPublishedToSubscribedClient(channelName string) *serverClient {
 	_, exists := server.Subscriptions[channelName]
 
 	if !exists {
@@ -207,4 +207,11 @@ func (server *Server) getLastPublishedToSubscribedClient(channelName string) *Se
 	}
 
 	return client
+}
+
+func NewServer() Server {
+	return Server{
+		Subscriptions: make(map[string][]serverClient),
+		listening:     false,
+	}
 }

@@ -146,3 +146,7 @@ func (client *Client) processIncomingSubscriptionData(data []byte, callback func
 
 	return processedLength
 }
+
+func NewClient() Client {
+	return Client{}
+}
