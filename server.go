@@ -118,7 +118,7 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 			}
 		}()
 
-		offset = offset + CommandMetadataTotalBufferSize + int(dataLength)
+		offset += CommandMetadataTotalBufferSize + int(dataLength)
 		processedLength += CommandMetadataTotalBufferSize + int(dataLength)
 	}
 
