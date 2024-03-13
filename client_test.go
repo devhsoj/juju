@@ -25,6 +25,12 @@ func TestClientPublish(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
+		if err := client.Publish("test", []byte("Test message."), false); err != nil {
+			t.Fatalf("failed to publish: %s", err)
+		}
+	}
+
+	for i := 0; i < 10; i++ {
 		if err := client.Publish("test", []byte("Test message."), true); err != nil {
 			t.Fatalf("failed to publish: %s", err)
 		}
@@ -62,10 +68,11 @@ func BenchmarkClientPublish(b *testing.B) {
 		b.Fatalf("failed to connect: %s", err)
 	}
 
+	channelName := "test"
 	msg := []byte("This is a test message!")
 
 	for n := 0; n < b.N; n++ {
-		if err := client.Publish("test", msg, false); err != nil {
+		if err := client.Publish(channelName, msg, false); err != nil {
 			b.Fatalf("failed to publish: %s", err)
 		}
 	}

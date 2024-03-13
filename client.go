@@ -2,6 +2,7 @@ package juju
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -14,7 +15,13 @@ type Client struct {
 	subscribed bool
 }
 
+var ErrClientSubscribed = errors.New("client is subscribed, command cannot be executed until the client unsubscribes")
+
 func (client *Client) Connect(serverAddress string) error {
+	if client.subscribed {
+		return ErrClientSubscribed
+	}
+
 	var err error
 
 	if len(serverAddress) == 0 {
@@ -37,12 +44,17 @@ func (client *Client) Disconnect() error {
 		return err
 	}
 
+	client.subscribed = false
 	client.connected = false
 
 	return nil
 }
 
 func (client *Client) Publish(channelName string, data []byte, exclusive bool) error {
+	if client.subscribed {
+		return ErrClientSubscribed
+	}
+
 	identifierBuf := EncodeIdentifier(channelName)
 	dataLengthBuf := make([]byte, 8)
 
@@ -70,6 +82,10 @@ func (client *Client) Publish(channelName string, data []byte, exclusive bool) e
 }
 
 func (client *Client) Subscribe(channelName string, callback func(data []byte)) error {
+	if client.subscribed {
+		return ErrClientSubscribed
+	}
+
 	identifierBuf := EncodeIdentifier(channelName)
 	dataLengthBuf := make([]byte, 8)
 
@@ -86,7 +102,7 @@ func (client *Client) Subscribe(channelName string, callback func(data []byte)) 
 
 	client.subscribed = true
 
-	for client.connected {
+	for client.subscribed {
 		var data []byte
 
 		for {
@@ -110,9 +126,11 @@ func (client *Client) Subscribe(channelName string, callback func(data []byte)) 
 		}
 	}
 
-	client.subscribed = false
-
 	return nil
+}
+
+func (client *Client) Unsubscribe() {
+	client.subscribed = false
 }
 
 func (client *Client) processIncomingSubscriptionData(data []byte, callback func(data []byte)) int {
@@ -148,5 +166,8 @@ func (client *Client) processIncomingSubscriptionData(data []byte, callback func
 }
 
 func NewClient() Client {
-	return Client{}
+	return Client{
+		connected:  false,
+		subscribed: false,
+	}
 }

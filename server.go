@@ -80,10 +80,10 @@ func (server *Server) handleConnection(conn net.Conn) {
 			}
 
 			data = append(data, dataBuf[:n]...)
-			processedDataLength := server.processIncomingData(conn, data)
+			processedDataOffset := server.processIncomingData(conn, data)
 
-			if processedDataLength > 0 {
-				data = data[processedDataLength:]
+			if processedDataOffset > 0 {
+				data = data[processedDataOffset:]
 			}
 		}
 	}
@@ -91,7 +91,6 @@ func (server *Server) handleConnection(conn net.Conn) {
 
 func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 	var offset = 0
-	var processedLength = 0
 
 	for offset < len(data) {
 		cmd := data[offset]
@@ -112,17 +111,14 @@ func (server *Server) processIncomingData(conn net.Conn, data []byte) int {
 
 		cmdData := data[offset+CommandMetadataTotalBufferSize : offset+CommandMetadataTotalBufferSize+int(dataLength)]
 
-		go func() {
-			if err := server.handleCommand(conn, cmd, identifier, cmdData); err != nil {
-				log.Printf("failed running command: %s", err)
-			}
-		}()
+		if err := server.handleCommand(conn, cmd, identifier, cmdData); err != nil {
+			log.Printf("failed running command: %s", err)
+		}
 
 		offset += CommandMetadataTotalBufferSize + int(dataLength)
-		processedLength += CommandMetadataTotalBufferSize + int(dataLength)
 	}
 
-	return processedLength
+	return offset
 }
 
 func (server *Server) handleCommand(conn net.Conn, cmd Command, identifier string, data []byte) error {
